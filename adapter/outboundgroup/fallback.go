@@ -101,20 +101,31 @@ func (f *Fallback) Unwrap(metadata *C.Metadata, touch bool) C.Proxy {
 
 func (f *Fallback) findAliveProxy(touch bool) C.Proxy {
 	proxies := f.GetProxies(touch)
-	for _, proxy := range proxies {
+	var firstAliveInx int = -1
+	for i, proxy := range proxies {
+		//change the behavior: first proxy which is alive and latency is less than health check timeout
+		isAlive := proxy.AliveForTestUrl(f.testUrl)
+		if isAlive && firstAliveInx == -1 {
+			firstAliveInx = i
+		}
+
 		if len(f.selected) == 0 {
-			if proxy.AliveForTestUrl(f.testUrl) {
+			if isAlive && proxy.LastDelayForTestUrl(f.testUrl) < uint16(f.testTimeout) {
 				return proxy
 			}
 		} else {
 			if proxy.Name() == f.selected {
-				if proxy.AliveForTestUrl(f.testUrl) {
+				if isAlive && proxy.LastDelayForTestUrl(f.testUrl) < uint16(f.testTimeout) {
 					return proxy
 				} else {
 					f.selected = ""
 				}
 			}
 		}
+	}
+
+	if firstAliveInx != -1 {
+		return proxies[firstAliveInx]
 	}
 
 	return proxies[0]
