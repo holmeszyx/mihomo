@@ -71,7 +71,8 @@ jobs:
             EXT=".exe"
           fi
 
-          go build -trimpath -ldflags "-X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=${BUILDTIME}' -w -s -buildid=" -o "${BIN}${EXT}"
+          go env
+          go build -v -tags "with_gvisor" -trimpath -ldflags "-X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=${BUILDTIME}' -w -s -buildid=" -o "${BIN}${EXT}"
 
           ZIP_NAME="${BIN}-${VERSION}.zip"
           zip -j "${ZIP_NAME}" "${BIN}${EXT}"
