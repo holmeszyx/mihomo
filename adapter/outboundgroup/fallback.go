@@ -15,10 +15,11 @@ import (
 
 type Fallback struct {
 	*GroupBase
-	disableUDP     bool
-	testUrl        string
-	selected       string
-	expectedStatus string
+	disableUDP       bool
+	testUrl          string
+	selected         string
+	expectedStatus   string
+	filterMaxLatency int
 }
 
 func (f *Fallback) Now() string {
@@ -109,13 +110,19 @@ func (f *Fallback) findAliveProxy(touch bool) C.Proxy {
 			firstAliveInx = i
 		}
 
+		pDelay := proxy.LastDelayForTestUrl(f.testUrl)
+		acceptDelay := true
+		if f.filterMaxLatency > 0 && pDelay > uint16(f.filterMaxLatency) {
+			acceptDelay = false
+		}
+
 		if len(f.selected) == 0 {
-			if isAlive && proxy.LastDelayForTestUrl(f.testUrl) < uint16(f.testTimeout) {
+			if isAlive && acceptDelay {
 				return proxy
 			}
 		} else {
 			if proxy.Name() == f.selected {
-				if isAlive && proxy.LastDelayForTestUrl(f.testUrl) < uint16(f.testTimeout) {
+				if isAlive && acceptDelay {
 					return proxy
 				} else {
 					f.selected = ""
@@ -181,8 +188,9 @@ func NewFallback(option *GroupCommonOption, providers []P.ProxyProvider) *Fallba
 			MaxFailedTimes: option.MaxFailedTimes,
 			Providers:      providers,
 		}),
-		disableUDP:     option.DisableUDP,
-		testUrl:        option.URL,
-		expectedStatus: option.ExpectedStatus,
+		disableUDP:       option.DisableUDP,
+		testUrl:          option.URL,
+		expectedStatus:   option.ExpectedStatus,
+		filterMaxLatency: option.FilterMaxLatency,
 	}
 }

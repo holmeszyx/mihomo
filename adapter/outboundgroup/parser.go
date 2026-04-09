@@ -34,6 +34,7 @@ type GroupCommonOption struct {
 	Lazy                bool     `group:"lazy,omitempty"`
 	DisableUDP          bool     `group:"disable-udp,omitempty"`
 	Filter              string   `group:"filter,omitempty"`
+	FilterMaxLatency    int      `group:"filter-max-latency,omitempty"`
 	ExcludeFilter       string   `group:"exclude-filter,omitempty"`
 	ExcludeType         string   `group:"exclude-type,omitempty"`
 	ExpectedStatus      string   `group:"expected-status,omitempty"`
