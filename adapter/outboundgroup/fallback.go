@@ -8,6 +8,7 @@ import (
 
 	"github.com/metacubex/mihomo/common/callback"
 	N "github.com/metacubex/mihomo/common/net"
+	"github.com/metacubex/mihomo/common/singledo"
 	"github.com/metacubex/mihomo/common/utils"
 	C "github.com/metacubex/mihomo/constant"
 	P "github.com/metacubex/mihomo/constant/provider"
@@ -20,6 +21,7 @@ type Fallback struct {
 	selected         string
 	expectedStatus   string
 	filterMaxLatency int
+	fastSingle       *singledo.Single[C.Proxy]
 }
 
 func (f *Fallback) Now() string {
@@ -100,53 +102,65 @@ func (f *Fallback) Unwrap(metadata *C.Metadata, touch bool) C.Proxy {
 	return proxy
 }
 
+func (f *Fallback) healthCheck() {
+	f.fastSingle.Reset()
+	f.GroupBase.healthCheck()
+	f.fastSingle.Reset()
+}
+
 func (f *Fallback) findAliveProxy(touch bool) C.Proxy {
-	proxies := f.GetProxies(touch)
+	proxy, _, shared := f.fastSingle.Do(func() (C.Proxy, error) {
+		proxies := f.GetProxies(touch)
 
-	var (
-		minLatencyInx int    = -1
-		minLatency    uint16 = 65535
-	)
+		var (
+			minLatencyInx int    = -1
+			minLatency    uint16 = 65535
+		)
 
-	for i, proxy := range proxies {
-		//change the behavior: first proxy which is alive and latency is less than health check timeout
-		isAlive := proxy.AliveForTestUrl(f.testUrl)
-		if isAlive && minLatencyInx == -1 {
-			minLatencyInx = i
-		}
-
-		acceptDelay := true
-		if isAlive {
-			pDelay := proxy.LastDelayForTestUrl(f.testUrl)
-			if pDelay < minLatency {
-				minLatency = pDelay
+		for i, proxy := range proxies {
+			// change the behavior: first proxy which is alive and latency is less than health check timeout
+			isAlive := proxy.AliveForTestUrl(f.testUrl)
+			if isAlive && minLatencyInx == -1 {
 				minLatencyInx = i
 			}
-			if f.filterMaxLatency > 0 && pDelay > uint16(f.filterMaxLatency) {
-				acceptDelay = false
-			}
-		}
 
-		if len(f.selected) == 0 {
-			if isAlive && acceptDelay {
-				return proxy
+			acceptDelay := true
+			if isAlive {
+				pDelay := proxy.LastDelayForTestUrl(f.testUrl)
+				if pDelay < minLatency {
+					minLatency = pDelay
+					minLatencyInx = i
+				}
+				if f.filterMaxLatency > 0 && pDelay > uint16(f.filterMaxLatency) {
+					acceptDelay = false
+				}
 			}
-		} else {
-			if proxy.Name() == f.selected {
+
+			if len(f.selected) == 0 {
 				if isAlive && acceptDelay {
-					return proxy
-				} else {
+					return proxy, nil
+				}
+			} else {
+				if proxy.Name() == f.selected {
+					if isAlive && acceptDelay {
+						return proxy, nil
+					}
 					f.selected = ""
 				}
 			}
 		}
+
+		if minLatencyInx != -1 {
+			return proxies[minLatencyInx], nil
+		}
+
+		return proxies[0], nil
+	})
+	if shared && touch { // a shared fastSingle.Do() may cause providers untouched, so we touch them again
+		f.Touch()
 	}
 
-	if minLatencyInx != -1 {
-		return proxies[minLatencyInx]
-	}
-
-	return proxies[0]
+	return proxy
 }
 
 func (f *Fallback) Set(name string) error {
@@ -163,6 +177,7 @@ func (f *Fallback) Set(name string) error {
 	}
 
 	f.selected = name
+	f.fastSingle.Reset()
 	if !p.AliveForTestUrl(f.testUrl) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(5000))
 		defer cancel()
@@ -175,6 +190,7 @@ func (f *Fallback) Set(name string) error {
 
 func (f *Fallback) ForceSet(name string) {
 	f.selected = name
+	f.fastSingle.Reset()
 }
 
 func (f *Fallback) Providers() []P.ProxyProvider {
@@ -203,5 +219,6 @@ func NewFallback(option *GroupCommonOption, providers []P.ProxyProvider) *Fallba
 		testUrl:          option.URL,
 		expectedStatus:   option.ExpectedStatus,
 		filterMaxLatency: option.FilterMaxLatency,
+		fastSingle:       singledo.NewSingle[C.Proxy](time.Second * 10),
 	}
 }
