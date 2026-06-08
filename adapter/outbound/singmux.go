@@ -2,9 +2,9 @@ package outbound
 
 import (
 	"context"
-	"time"
 
 	N "github.com/metacubex/mihomo/common/net"
+	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/component/proxydialer"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/log"
@@ -29,7 +29,6 @@ type SingMuxOption struct {
 	Padding        bool         `proxy:"padding,omitempty"`
 	Statistic      bool         `proxy:"statistic,omitempty"`
 	OnlyTcp        bool         `proxy:"only-tcp,omitempty"`
-	TCPTimeout     int          `proxy:"tcp-timeout,omitempty"`
 	BrutalOpts     BrutalOption `proxy:"brutal-opts,omitempty"`
 }
 
@@ -105,11 +104,11 @@ func NewSingMux(option SingMuxOption, proxy ProxyAdapter) (ProxyAdapter, error) 
 		MinStreams:     option.MinStreams,
 		MaxStreams:     option.MaxStreams,
 		Padding:        option.Padding,
-		TCPTimeout:     time.Duration(option.TCPTimeout) * time.Second,
+		TCPTimeout:     C.DefaultTCPTimeout,
 		Brutal: mux.BrutalOptions{
 			Enabled:    option.BrutalOpts.Enabled,
-			SendBPS:    StringToBps(option.BrutalOpts.Up),
-			ReceiveBPS: StringToBps(option.BrutalOpts.Down),
+			SendBPS:    utils.StringToBps(option.BrutalOpts.Up),
+			ReceiveBPS: utils.StringToBps(option.BrutalOpts.Down),
 		},
 	})
 	if err != nil {
