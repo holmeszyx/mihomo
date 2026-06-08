@@ -26,6 +26,7 @@ type VlessServer struct {
 	ClientAuthType  string
 	ClientAuthCert  string
 	EchKey          string
+	AllowInsecure   bool
 	RealityConfig   reality.Config
 	MuxOption       sing.MuxOption `yaml:"mux-option" json:"mux-option,omitempty"`
 }
@@ -34,6 +35,20 @@ type XHTTPConfig struct {
 	Path                 string
 	Host                 string
 	Mode                 string
+	XPaddingBytes        string
+	XPaddingObfsMode     bool
+	XPaddingKey          string
+	XPaddingHeader       string
+	XPaddingPlacement    string
+	XPaddingMethod       string
+	UplinkHTTPMethod     string
+	SessionPlacement     string
+	SessionKey           string
+	SeqPlacement         string
+	SeqKey               string
+	UplinkDataPlacement  string
+	UplinkDataKey        string
+	UplinkChunkSize      string
 	NoSSEHeader          bool
 	ScStreamUpServerSecs string
 	ScMaxBufferedPosts   string
